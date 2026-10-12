@@ -341,6 +341,51 @@ test('标点位置切回居中时，两个字形仍然分列左右', () => {
   assert.equal(dot.y, quote.y, '居中模式下两者应在同一水平线')
 })
 
+test('右对齐：含单个半角数字时不会把末字顶到下一行', () => {
+  // "第1章" 视觉宽度 2.5 格，但实际要占 3 格。
+  // 早先按宽度算 pad = 20 - 2.5 = 17.5，循环按 18 次补空格 → 总宽 20.5 → 末字溢出
+  const r = typeset([{ text: '第1章', indent: 0, align: 'right' }], RAW)
+  assert.equal(r.stats.lines, 1, '应当只占一行')
+  const cells = cellsOf(r.lines[0])
+  assert.equal(cells[17], '第')
+  assert.equal(cells[18], '1')
+  assert.equal(cells[19], '章', '右对齐的末字必须落在最后一格')
+})
+
+test('右对齐：内容里浪费半格时同样不能溢出', () => {
+  // "A第A" 宽度只有 2 格，却要占 3 格（A 后面那半格放不下全角字）
+  // 按宽度补 18 格 → 21 格，末字会被挤走
+  const r = typeset([{ text: 'A第A', indent: 0, align: 'right' }], RAW)
+  assert.equal(r.stats.lines, 1)
+  assert.deepEqual(cellsOf(r.lines[0]).slice(17), ['A', '第', 'A'])
+})
+
+test('一行的格子数绝不超过 cols（半角与全角混排会浪费半格）', () => {
+  const samples = [
+    '第A第A第A第A第A第A第A第A第A第A章',
+    '甲1乙2丙3丁4戊5己6庚7辛8壬9癸0',
+    'A甲B乙C丙D丁E戊F己G庚H辛I壬J癸',
+    '2024年12月31日甲乙丙丁戊己庚辛壬癸',
+    'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6',
+  ]
+  for (const s of samples) {
+    const r = typeset(textToParagraphs(s), RAW)
+    r.lines.forEach((line, i) => {
+      assert.equal(
+        line.length,
+        20,
+        `第 ${i + 1} 行排出了 ${line.length} 格（超过 20）：${s}`,
+      )
+    })
+    // 页面上的可见字符必须一个不少、一个不多
+    const onPage = r.pages[0].cells
+      .map((c) => c.glyphs.map((g) => g.ch).join(''))
+      .join('')
+      .replace(/[\u3000 ]/g, '')
+    assert.equal(onPage, s, `页面内容与原文不一致（有字被丢掉或挤串）：${s}`)
+  }
+})
+
 test('居中标题独占一行，不与正文挤在同一行', () => {
   const r = typeset(
     [

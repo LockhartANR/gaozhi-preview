@@ -190,18 +190,6 @@ export function toUnits(
       }
 
       const chars = graphemes(trimmed)
-      const visualLen = chars.reduce((sum, ch) => sum + charWidth(ch), 0)
-
-      // 首行缩进 / 居中 / 右对齐 → 左侧补空格子
-      let pad = 0
-      if (options.centerAlignment && p.align === 'center' && visualLen < cols) {
-        pad = Math.floor((cols - visualLen) / 2)
-      } else if (p.align === 'right' && visualLen < cols) {
-        pad = cols - visualLen
-      } else if (options.indentEnabled) {
-        pad = si === 0 ? p.indent : 0
-      }
-      for (let k = 0; k < pad; k++) units.push(mkUnit('\u3000', pi))
 
       // 正文：先攒成本段的单元，标点合占要在段内做（不能跨段/跨缩进）
       const segUnits: Unit[] = []
@@ -219,6 +207,21 @@ export function toUnits(
       }
       if (options.mergePunctuation) mergedTotal += mergePunctPairs(segUnits)
       assignWordGroups(segUnits)
+
+      // 首行缩进 / 居中 / 右对齐 → 左侧补空格子。
+      // 必须按"段内这一段要占几格"算，不能按宽度和算：
+      // 右对齐时 cols - 2.5 = 17.5，按 18 格补就溢出成 21 格，末字被顶到下一行。
+      const contentCells = packOf(segUnits).cells
+      let pad = 0
+      if (options.centerAlignment && p.align === 'center' && contentCells < cols) {
+        pad = Math.floor((cols - contentCells) / 2)
+      } else if (p.align === 'right' && contentCells < cols) {
+        pad = cols - contentCells
+      } else if (options.indentEnabled) {
+        pad = si === 0 ? p.indent : 0
+      }
+      for (let k = 0; k < pad; k++) units.push(mkUnit('\u3000', pi))
+
       units.push(...segUnits)
     })
 
@@ -227,6 +230,48 @@ export function toUnits(
   })
 
   return { units, merged: mergedTotal }
+}
+
+/**
+ * 一组单元按格装箱后的状态。
+ *
+ * 这是"放不放得下"的唯一判据 —— 必须按**格子数**算，不能按宽度和。
+ * 半角字符后面跟全角字符时，那个半角字符独占半格、另外半格是浪费的：
+ *   第 A 章  →  宽度 2.5，却要占 3 格
+ * 早先按宽度和判断，于是会排出 21 格的"一行"，最后一个字被 paginate 悄悄丢掉
+ * 或者被挤到下一行（右对齐补空格时最容易触发）。
+ */
+export function packOf(units: Unit[]): {
+  /** 占用的格子数。 */
+  cells: number
+  /** 当前这一格已经填了多少宽度（0 表示还没开格，0.5 表示半格）。 */
+  half: number
+  /** 宽度和，仅用于展示。 */
+  used: number
+} {
+  let cells = 0
+  let half = 0
+  let used = 0
+
+  for (const u of units) {
+    const glyphChars = u.w > 1 ? graphemes(u.ch) : [u.ch]
+    for (const g of glyphChars) {
+      const gw = charWidth(g)
+      if (half === 0) {
+        cells++
+        half = gw
+      } else if (half + gw <= 1.0001) {
+        half += gw // 两个半角合占一格
+      } else {
+        cells++
+        half = gw
+      }
+    }
+    // squeezed 挤在当前格里，不额外占格、不额外算宽度
+    used += u.w
+  }
+
+  return { cells, half, used }
 }
 
 /** 一行单元 → 格子数组，长度补齐到 cols。 */
@@ -275,14 +320,12 @@ export function buildLines(
   let squeezedCount = 0
 
   let cur: Unit[] = []
-  let used = 0
   let i = 0
   let squeezeInLine = 0
 
   const flush = () => {
     lines.push(unitsToCells(cur, cols))
     cur = []
-    used = 0
     squeezeInLine = 0
   }
 
@@ -302,9 +345,10 @@ export function buildLines(
       continue
     }
 
-    if (used + u.w <= cols + 1e-6) {
+    // 按格子数判断放不放得下（不是宽度和：半角后面跟全角会浪费半格）。
+    // cur 为空时必须收下，否则这个单元永远放不进去 → 死循环。
+    if (cur.length === 0 || packOf([...cur, u]).cells <= cols) {
       cur.push(u)
-      used += u.w
       i++
       continue
     }
@@ -322,7 +366,6 @@ export function buildLines(
       if (g >= 0) {
         while (cur.length > g + 1) {
           const moved = cur.pop()!
-          used -= moved.w
           tail--
           if (tail < 0 || units[tail] !== moved) break // 一致性兜底
         }
@@ -332,7 +375,6 @@ export function buildLines(
     // (1) 行尾禁则：把行末不能结尾的字符退回去
     while (cur.length > 1 && cur[cur.length - 1].noEnd) {
       const moved = cur.pop()!
-      used -= moved.w
       tail--
       if (tail < 0 || units[tail] !== moved) break // 一致性兜底
     }
@@ -372,8 +414,6 @@ export function buildLines(
       tail--
       if (tail < 0 || units[tail] !== moved) {
         cur.push(moved)
-      } else {
-        used -= moved.w
       }
     }
 
