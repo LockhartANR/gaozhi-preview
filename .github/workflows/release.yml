@@ -72,17 +72,19 @@ jobs:
 
       # tauri build 会先在 target/release 下产出裸 exe，再拿它去打 NSIS 包。
       # 裸 exe 就是免安装版，顺手一起传上去。
+      # 注意：gh release upload 的 file#label 只改"显示标签"不改文件名，
+      # 所以这里先复制成带版本号的文件名再传，保证下载下来的名字自解释。
       - name: 附上免安装版
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $tag = "${{ github.ref_name }}"
           $exe = Get-ChildItem "src-tauri/target/release/*.exe" -ErrorAction SilentlyContinue |
                  Where-Object { $_.Name -notmatch 'setup' } |
                  Select-Object -First 1
           if (-not $exe) { throw "在 src-tauri/target/release 下没找到 exe" }
-          $mb = [math]::Round($exe.Length / 1MB, 2)
-          Write-Output "上传免安装版：$($exe.Name)（$mb MB）"
-          gh release upload "${{ github.ref_name }}" `
-            "$($exe.FullName)#gaozhi-preview_${{ github.ref_name }}_x64_portable.exe" `
-            --clobber
+          $dest = Join-Path $exe.DirectoryName "gaozhi-preview_${tag}_x64_portable.exe"
+          Copy-Item $exe.FullName $dest -Force
+          Write-Output "上传免安装版：$(Split-Path $dest -Leaf)（$([math]::Round((Get-Item $dest).Length / 1MB, 2)) MB）"
+          gh release upload $tag $dest --clobber
