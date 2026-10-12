@@ -1,0 +1,25 @@
+[package]
+name = "gaozhi-preview"
+version = "0.1.0"
+description = "方格纸预览 —— 把 Word 中文正文排成 400 字稿纸的样子"
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "gaozhi_preview_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

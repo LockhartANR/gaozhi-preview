@@ -1,0 +1,57 @@
+{
+  "name": "gaozhi-preview",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "把 Word 中文正文预览成 400 字（20x20）方格纸的样子",
+  "license": "MIT",
+  "author": "LockhartANR",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LockhartANR/gaozhi-preview.git"
+  },
+  "homepage": "https://github.com/LockhartANR/gaozhi-preview#readme",
+  "bugs": {
+    "url": "https://github.com/LockhartANR/gaozhi-preview/issues"
+  },
+  "keywords": [
+    "稿纸",
+    "方格纸",
+    "word",
+    "docx",
+    "中文排版",
+    "避头尾",
+    "标点符号",
+    "tauri",
+    "react",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:standalone": "vite build && node scripts/build-standalone.mjs",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:exe": "tauri build --no-bundle",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test-typeset.ts"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.2",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3"
+  }
+}

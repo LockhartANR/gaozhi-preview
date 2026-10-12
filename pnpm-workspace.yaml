@@ -1,0 +1,15 @@
+# Windows 上 pnpm 默认用 junction 组织 node_modules，而 Node 的 ESM 解析器
+# 不穿透 junction，vite 会找不到自己的依赖（rollup / picomatch …）。
+# 用 npm 式的扁平结构绕开这个问题。
+nodeLinker: hoisted
+
+allowBuilds:
+  esbuild: false
+
+# 关掉"发布年龄/供应链策略"联网校验：这台机器访问 npm registry 极慢，
+# 该校验会把每次 install 拖到超时。
+minimumReleaseAge: 0
+
+# 项目目录被移动过，pnpm 会要求清空重装 node_modules。
+# 关掉交互确认，让它直接重建（store 就在项目里，离线即可完成）。
+confirmModulesPurge: false

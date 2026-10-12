@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  desktop:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 引擎自检
+        run: pnpm test
+
+      # tauri-action 会读 tauri.conf.json 里的 beforeBuildCommand 来构建前端，
+      # 然后把 exe / NSIS 安装程序传到一个 draft release。
+      - name: 构建桌面应用并发布
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '方格纸预览 ${{ github.ref_name }}'
+          releaseBody: '见 [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})。'
+          releaseDraft: true
+          prerelease: false
