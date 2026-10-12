@@ -54,8 +54,7 @@ jobs:
             | 文件 | 说明 |
             | --- | --- |
             | `*_x64-setup.exe` | 安装程序，装到开始菜单，带卸载项 |
-            | `*_x64_en-US.msi` | MSI 安装包（如果本次构建包含） |
-            | `gaozhi-preview.exe` | 免安装版，双击即用（如果本次构建包含） |
+            | `*_portable.exe` | 免安装版，双击即用 |
 
             用的是 Windows 自带的 WebView2，不需要额外安装运行时。文稿不上传，
             解析和排版全部在本地完成。
@@ -66,6 +65,24 @@ jobs:
             被安全软件或受限环境挡住时会这样。把环境变量 `WEBVIEW2_USER_DATA_FOLDER`
             指向一个可写目录即可。
 
-            详见 [README](https://github.com/${{ github.repository }}#readme)。
+            其他用法（网页版、单文件 HTML）和已知边界见
+            [README](https://github.com/${{ github.repository }}#readme)。
           releaseDraft: false
           prerelease: false
+
+      # tauri build 会先在 target/release 下产出裸 exe，再拿它去打 NSIS 包。
+      # 裸 exe 就是免安装版，顺手一起传上去。
+      - name: 附上免安装版
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $exe = Get-ChildItem "src-tauri/target/release/*.exe" -ErrorAction SilentlyContinue |
+                 Where-Object { $_.Name -notmatch 'setup' } |
+                 Select-Object -First 1
+          if (-not $exe) { throw "在 src-tauri/target/release 下没找到 exe" }
+          $mb = [math]::Round($exe.Length / 1MB, 2)
+          Write-Output "上传免安装版：$($exe.Name)（$mb MB）"
+          gh release upload "${{ github.ref_name }}" `
+            "$($exe.FullName)#gaozhi-preview_${{ github.ref_name }}_x64_portable.exe" `
+            --clobber
