@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 jobs:
   desktop:
@@ -39,7 +38,7 @@ jobs:
         run: pnpm test
 
       # tauri-action 会读 tauri.conf.json 里的 beforeBuildCommand 来构建前端，
-      # 然后把 exe / NSIS 安装程序传到一个 draft release。
+      # 然后编译并把 exe / NSIS 安装程序传到 release。
       - name: 构建桌面应用并发布
         uses: tauri-apps/tauri-action@action-v1.0.0
         env:
@@ -47,6 +46,26 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: '方格纸预览 ${{ github.ref_name }}'
-          releaseBody: '见 [CHANGELOG](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})。'
-          releaseDraft: true
+          releaseBody: |
+            把 Word（`.docx`）或粘贴的中文正文，按 **20 × 20 = 400 格/页** 的方格纸排版并预览。
+
+            ## 下载
+
+            | 文件 | 说明 |
+            | --- | --- |
+            | `*_x64-setup.exe` | 安装程序，装到开始菜单，带卸载项 |
+            | `*_x64_en-US.msi` | MSI 安装包（如果本次构建包含） |
+            | `gaozhi-preview.exe` | 免安装版，双击即用（如果本次构建包含） |
+
+            用的是 Windows 自带的 WebView2，不需要额外安装运行时。文稿不上传，
+            解析和排版全部在本地完成。
+
+            ## 首次启动报 `os error 5`？
+
+            那是运行环境的权限问题：WebView2 需要在 `%LOCALAPPDATA%` 下建数据目录并设置 ACL，
+            被安全软件或受限环境挡住时会这样。把环境变量 `WEBVIEW2_USER_DATA_FOLDER`
+            指向一个可写目录即可。
+
+            详见 [README](https://github.com/${{ github.repository }}#readme)。
+          releaseDraft: false
           prerelease: false
