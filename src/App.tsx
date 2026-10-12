@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PageSheet } from './components/PageSheet.tsx'
 import { Sidebar } from './components/Sidebar.tsx'
 import { parseDocx } from './core/docx.ts'
@@ -29,6 +29,9 @@ export default function App() {
   const [status, setStatus] = useState<Status>({ kind: 'idle', text: '' })
   const [pngJob, setPngJob] = useState<{ done: number; total: number } | null>(null)
   const [printMode, setPrintMode] = useState(false)
+  const [dragging, setDragging] = useState(false)
+  /** dragenter/dragleave 会在子元素之间反复触发，用计数判断是否真的离开了窗口 */
+  const dragDepth = useRef(0)
 
   const patchOptions = useCallback(
     (p: Partial<TypesetOptions>) => setOptions((o) => ({ ...o, ...p })),
@@ -83,8 +86,54 @@ export default function App() {
     }
   }, [])
 
-  const loadText = useCallback((text: string) => {
-    setSource({
+  /**
+   * 整个窗口都接受拖放，而不是只有左上角那个虚线框。
+   * 桌面版（Tauri）里还需要在 tauri.conf.json 关掉 dragDropEnabled，
+   * 否则 OS 级拖放会被 Tauri 截走，WebView 根本收不到 drop 事件。
+   */
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes('Files')
+
+    const onEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      dragDepth.current++
+      setDragging(true)
+    }
+    const onOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      // 必须 preventDefault，否则浏览器认为这里不接受投放，drop 不会触发
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const onLeave = () => {
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragging(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      dragDepth.current = 0
+      setDragging(false)
+      if (!hasFiles(e)) return
+      // 投放区自己的处理函数已经处理过了，别重复解析
+      if (e.defaultPrevented) return
+      e.preventDefault()
+      const file = e.dataTransfer?.files?.[0]
+      if (file) void loadFile(file)
+    }
+
+    window.addEventListener('dragenter', onEnter)
+    window.addEventListener('dragover', onOver)
+    window.addEventListener('dragleave', onLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragenter', onEnter)
+      window.removeEventListener('dragover', onOver)
+      window.removeEventListener('dragleave', onLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [loadFile])
+
+  const loadText = useCallback((text: string) => {    setSource({
       paragraphs: textToParagraphs(text, 2),
       warnings: [],
       media: { ...emptyMedia },
@@ -204,6 +253,15 @@ export default function App() {
           </div>
         </main>
       </div>
+
+      {dragging && (
+        <div className="dropveil">
+          <div className="dropveil__card">
+            <strong>松手即可打开</strong>
+            <span>支持 Word 文档（.docx）</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

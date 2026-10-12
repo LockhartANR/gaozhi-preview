@@ -1,6 +1,6 @@
 [package]
 name = "gaozhi-preview"
-version = "0.1.0"
+version = "0.1.1"
 description = "方格纸预览 —— 把 Word 中文正文排成 400 字稿纸的样子"
 edition = "2021"
 rust-version = "1.77"

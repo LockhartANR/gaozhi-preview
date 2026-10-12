@@ -437,6 +437,40 @@ button.ghost {
   pointer-events: none;
 }
 
+/* ---------- 全窗口拖放提示 ---------- */
+.dropveil {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: grid;
+  place-items: center;
+  background: rgba(35, 92, 74, 0.28);
+  /* 关键：让事件穿透到下层，投放仍然落在原来的元素上 */
+  pointer-events: none;
+}
+
+.dropveil__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 44px;
+  border-radius: 14px;
+  background: #fff;
+  border: 2px dashed var(--accent);
+  box-shadow: 0 12px 40px rgba(20, 40, 32, 0.28);
+}
+
+.dropveil__card strong {
+  font-size: 17px;
+  color: var(--accent);
+}
+
+.dropveil__card span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 /* ---------- 打印 ---------- */
 @page {
   size: A4;

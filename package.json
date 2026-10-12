@@ -1,7 +1,7 @@
 {
   "name": "gaozhi-preview",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "把 Word 中文正文预览成 400 字（20x20）方格纸的样子",
   "license": "MIT",
